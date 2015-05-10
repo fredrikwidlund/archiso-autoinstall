@@ -71,17 +71,28 @@ function install_os
     mkdir /mnt/boot /mnt/home
     mount /dev/arch/boot /mnt/boot
     mount /dev/arch/home /mnt/home
+
+    MIRROR=$(jshon -e mirror -u < $conf 2>/dev/null)
+    if [ -n "$MIRROR" ]
+    then
+	sed -i -e '1iServer = '$MIRROR'\' /etc/pacman.d/mirrorlist
+    fi
     
     pacstrap /mnt base base-devel
     genfstab /mnt >> /mnt/etc/fstab
     arch-chroot /mnt pacman -Syy --noconfirm
     arch-chroot /mnt pacman -S --noconfirm grub
-    exit 1
-    arch-chroot /mnt grub-install --boot-directory=/boot --no-flopppy --recheck --debug /dev/$(lookup_disk)
+    arch-chroot /mnt grub-install --boot-directory=/boot --no-floppy --recheck --debug /dev/$(lookup_disk)
     arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
     sed -i 's/filesystems /lvm2 filesystems /g' /mnt/etc/mkinitcpio.conf
     arch-chroot /mnt mkinitcpio -p linux
-    umount -a
+    cp /etc/netctl/ethernet-static /mnt/etc/netctl
+    arch-chroot /mnt netctl enable ethernet-static
+    arch-chroot /mnt pacman -S --noconfirm openssh
+    arch-chroot /mnt systemctl enable sshd
+    umount /mnt/boot
+    umount /mnt/home
+    umount /mnt
 }
 
 echo --- load configuration
@@ -100,3 +111,6 @@ configure_disk
 
 echo --- install os
 install_os
+
+echo --- rebooting
+reboot
